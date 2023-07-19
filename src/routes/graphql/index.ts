@@ -52,13 +52,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
       id: { type: UUIDType },
       isMale: { type: GraphQLBoolean },
       yearOfBirth: { type: GraphQLInt },
-    }
-  });
-
-  const UserWithNullProfileIdType = new GraphQLObjectType({
-    name: 'UserWithNullProfileIdType',
-    fields: {
-      id: { type: UUIDType }
+      memberType: { type: MemberType }
     }
   });
 
@@ -68,7 +62,8 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
       id: { type: UUIDType },
       name: { type: GraphQLString },
       balance: { type: GraphQLFloat },
-      profile: { type: UserWithNullProfileIdType }
+      profile: { type: ProfileType },
+      posts: { type: new GraphQLList(PostType) }
     }
   });
 
