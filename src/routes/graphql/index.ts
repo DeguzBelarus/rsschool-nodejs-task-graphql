@@ -10,6 +10,7 @@ import {
   GraphQLList,
   GraphQLString,
   GraphQLBoolean,
+  GraphQLScalarType,
 } from 'graphql';
 import { UUIDType } from "./types/uuid.js";
 
@@ -159,7 +160,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
 
   const RootQueryType = new GraphQLObjectType<IRootQuery>({
     name: 'RootQueryType',
-    fields: () => ({
+    fields: {
       memberTypes: {
         type: new GraphQLList(MemberType),
         async resolve() {
@@ -213,11 +214,149 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
           return await prisma.user.findUnique({ where: { id: args.id } });
         }
       },
-    }),
+    },
+  });
+
+  interface ICreateUserData {
+    name: string;
+    balance: number;
+  }
+
+  interface ICreatePostData {
+    authorId: string;
+    content: string;
+    title: string;
+  }
+
+  interface ICreateProfileData {
+    userId: string;
+    memberTypeId: MemberTypeIdEnum;
+    isMale: boolean;
+    yearOfBirth: number;
+  }
+
+  const CreateUserInput = new GraphQLScalarType({
+    name: 'CreateUserInput',
+    serialize(value) {
+      const createUserData = value as ICreateUserData;
+      return typeof createUserData.name !== 'string' &&
+        typeof createUserData.balance !== 'number' ?
+        null
+        : value;
+    },
+    parseValue(value) {
+      const createUserData = value as ICreateUserData;
+      return typeof createUserData.name !== 'string' &&
+        typeof createUserData.balance !== 'number' ?
+        null
+        : value;
+    },
+  });
+
+  const CreatePostInput = new GraphQLScalarType({
+    name: 'CreatePostInput',
+    serialize(value) {
+      const createPostData = value as ICreatePostData;
+      return typeof createPostData.authorId !== 'string' &&
+        typeof createPostData.title !== 'string' &&
+        typeof createPostData.content !== 'number' ?
+        null
+        : value;
+    },
+    parseValue(value) {
+      const createPostData = value as ICreatePostData;
+      return typeof createPostData.authorId !== 'string' &&
+        typeof createPostData.title !== 'string' &&
+        typeof createPostData.content !== 'number' ?
+        null
+        : value;
+    },
+  });
+
+  const CreateProfileInput = new GraphQLScalarType({
+    name: 'CreateProfileInput',
+    serialize(value) {
+      const createProfileData = value as ICreateProfileData;
+      return typeof createProfileData.userId !== 'string' &&
+        (createProfileData.memberTypeId !== MemberTypeIdEnum.BASIC &&
+          createProfileData.memberTypeId !== MemberTypeIdEnum.BUSINESS) &&
+        typeof createProfileData.yearOfBirth !== 'number' &&
+        typeof createProfileData.isMale !== 'boolean' ?
+        null
+        : value;
+    },
+    parseValue(value) {
+      const createProfileData = value as ICreateProfileData;
+      return typeof createProfileData.userId !== 'string' &&
+        (createProfileData.memberTypeId !== MemberTypeIdEnum.BASIC &&
+          createProfileData.memberTypeId !== MemberTypeIdEnum.BUSINESS) &&
+        typeof createProfileData.yearOfBirth !== 'number' &&
+        typeof createProfileData.isMale !== 'boolean' ?
+        null
+        : value;
+    },
+  });
+
+  const CreateUserInputType = new GraphQLObjectType({
+    name: 'CreateUserInputType',
+    fields: {
+      id: {
+        type: UUIDType,
+      }
+    }
+  });
+
+  const CreatePostInputType = new GraphQLObjectType({
+    name: 'CreatePostInputType',
+    fields: {
+      id: {
+        type: UUIDType,
+      }
+    }
+  });
+
+  const CreateProfileInputType = new GraphQLObjectType({
+    name: 'CreateProfileInputType',
+    fields: {
+      id: {
+        type: UUIDType,
+      }
+    }
+  });
+
+  const RootMutationType = new GraphQLObjectType({
+    name: 'RootMutationType',
+    fields: {
+      createUser: {
+        type: CreateUserInputType,
+        args: { dto: { type: CreateUserInput } },
+        async resolve(_, args: { dto: ICreateUserData }) {
+          const { dto: { name, balance } } = args;
+          return await prisma.user.create({ data: { name, balance } });
+        }
+      },
+      createPost: {
+        type: CreatePostInputType,
+        args: { dto: { type: CreatePostInput } },
+        async resolve(_, args: { dto: ICreatePostData }) {
+          const { dto: { authorId, title, content } } = args;
+          return await prisma.post.create({ data: { authorId, title, content } });
+        }
+      },
+      createProfile: {
+        type: CreateProfileInputType,
+        args: { dto: { type: CreateProfileInput } },
+        async resolve(_, args: { dto: ICreateProfileData }) {
+          const { dto: { userId, memberTypeId, isMale, yearOfBirth } } = args;
+          return await prisma.profile.create({ data: { userId, memberTypeId, isMale, yearOfBirth } });
+        }
+      }
+    }
   });
 
   const schema = new GraphQLSchema({
     query: RootQueryType,
+    mutation: RootMutationType
   });
 
   fastify.route({
