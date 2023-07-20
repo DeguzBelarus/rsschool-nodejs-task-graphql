@@ -11,6 +11,7 @@ import {
   GraphQLString,
   GraphQLBoolean,
   GraphQLScalarType,
+  GraphQLNullableType,
 } from 'graphql';
 import { UUIDType } from "./types/uuid.js";
 
@@ -309,8 +310,8 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
     },
   });
 
-  const CreateUserInputType = new GraphQLObjectType({
-    name: 'CreateUserInputType',
+  const CreateUserType = new GraphQLObjectType({
+    name: 'CreateUserType',
     fields: {
       id: {
         type: UUIDType,
@@ -318,8 +319,8 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
     }
   });
 
-  const CreatePostInputType = new GraphQLObjectType({
-    name: 'CreatePostInputType',
+  const CreatePostType = new GraphQLObjectType({
+    name: 'CreatePostType',
     fields: {
       id: {
         type: UUIDType,
@@ -327,8 +328,8 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
     }
   });
 
-  const CreateProfileInputType = new GraphQLObjectType({
-    name: 'CreateProfileInputType',
+  const CreateProfileType = new GraphQLObjectType({
+    name: 'CreateProfileType',
     fields: {
       id: {
         type: UUIDType,
@@ -340,7 +341,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
     name: 'RootMutationType',
     fields: {
       createUser: {
-        type: CreateUserInputType,
+        type: CreateUserType,
         args: { dto: { type: CreateUserInput } },
         async resolve(_, args: { dto: ICreateUserData }) {
           const { dto: { name, balance } } = args;
@@ -348,7 +349,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         }
       },
       createPost: {
-        type: CreatePostInputType,
+        type: CreatePostType,
         args: { dto: { type: CreatePostInput } },
         async resolve(_, args: { dto: ICreatePostData }) {
           const { dto: { authorId, title, content } } = args;
@@ -356,11 +357,35 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         }
       },
       createProfile: {
-        type: CreateProfileInputType,
+        type: CreateProfileType,
         args: { dto: { type: CreateProfileInput } },
         async resolve(_, args: { dto: ICreateProfileData }) {
           const { dto: { userId, memberTypeId, isMale, yearOfBirth } } = args;
           return await prisma.profile.create({ data: { userId, memberTypeId, isMale, yearOfBirth } });
+        }
+      },
+      deleteUser: {
+        type: GraphQLString,
+        args: { id: { type: UUIDType } },
+        async resolve(_, args: { id: string }) {
+          const { id } = args;
+          await prisma.user.delete({ where: { id } });
+        }
+      },
+      deletePost: {
+        type: GraphQLString,
+        args: { id: { type: UUIDType } },
+        async resolve(_, args: { id: string }) {
+          const { id } = args;
+          await prisma.post.delete({ where: { id } });
+        }
+      },
+      deleteProfile: {
+        type: GraphQLString,
+        args: { id: { type: UUIDType } },
+        async resolve(_, args: { id: string }) {
+          const { id } = args;
+          await prisma.profile.delete({ where: { id } });
         }
       }
     }
