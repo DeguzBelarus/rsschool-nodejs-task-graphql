@@ -277,6 +277,12 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
     name: 'CreateProfileInput',
     serialize(value) {
       const createProfileData = value as ICreateProfileData;
+      if (!Number.isInteger(createProfileData.yearOfBirth)) {
+        throw new Error(
+          `Int cannot represent non-integer value: ${createProfileData.yearOfBirth}`,
+        );
+      }
+
       return typeof createProfileData.userId !== 'string' &&
         (createProfileData.memberTypeId !== MemberTypeIdEnum.BASIC &&
           createProfileData.memberTypeId !== MemberTypeIdEnum.BUSINESS) &&
@@ -287,6 +293,12 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
     },
     parseValue(value) {
       const createProfileData = value as ICreateProfileData;
+      if (!Number.isInteger(createProfileData.yearOfBirth)) {
+        throw new Error(
+          `Int cannot represent non-integer value: ${createProfileData.yearOfBirth}`,
+        );
+      }
+
       return typeof createProfileData.userId !== 'string' &&
         (createProfileData.memberTypeId !== MemberTypeIdEnum.BASIC &&
           createProfileData.memberTypeId !== MemberTypeIdEnum.BUSINESS) &&
@@ -348,6 +360,8 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         args: { dto: { type: CreateProfileInput } },
         async resolve(_, args: { dto: ICreateProfileData }) {
           const { dto: { userId, memberTypeId, isMale, yearOfBirth } } = args;
+          console.log(Number.isInteger(yearOfBirth), 'year', yearOfBirth);
+
           return await prisma.profile.create({ data: { userId, memberTypeId, isMale, yearOfBirth } });
         }
       }
