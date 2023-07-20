@@ -52,7 +52,11 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
       id: { type: UUIDType },
       isMale: { type: GraphQLBoolean },
       yearOfBirth: { type: GraphQLInt },
-      memberType: { type: MemberType }
+      memberType: {
+        type: MemberType, async resolve(parent: { userId: string }, _) {
+          const foundProfile = await prisma.profile.findUnique({ where: { userId: parent.userId } });
+          return await prisma.memberType.findUnique({ where: { id: foundProfile?.memberTypeId } });
+        } }
     }
   });
 
@@ -62,8 +66,13 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
       id: { type: UUIDType },
       name: { type: GraphQLString },
       balance: { type: GraphQLFloat },
-      profile: { type: ProfileType },
-      posts: { type: new GraphQLList(PostType) },
+      profile: {
+        type: ProfileType, async resolve(parent: { id: string }, _) {
+          return await prisma.profile.findUnique({ where: { userId: parent.id } })
+        } },
+      posts: { type: new GraphQLList(PostType), async resolve(parent: { id: string }, _) {
+        return await prisma.post.findMany({where: { authorId: parent.id }})
+      } },
       userSubscribedTo: {
         type: new GraphQLList(UserType), async resolve(parent: { id: string }, _) {
           return await prisma.user.findMany({
@@ -119,7 +128,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         type: PostType,
         args: { id: { type: UUIDType } },
         async resolve(_, args: { id: string }) {
-          return await prisma.post.findUnique({ where: { id: args.id } }) || null;
+          return await prisma.post.findUnique({ where: { id: args.id } });
         }
       },
       profiles: {
@@ -132,7 +141,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         type: ProfileType,
         args: { id: { type: UUIDType } },
         async resolve(_, args: { id: string }) {
-          return await prisma.profile.findUnique({ where: { id: args.id } }) || null;
+          return await prisma.profile.findUnique({ where: { id: args.id } });
         }
       },
       users: {
@@ -146,7 +155,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         args: { id: { type: UUIDType } },
         async resolve(_, args: { id: string, userWithNullProfileId: undefined | string }) {
           if (args.userWithNullProfileId) return { userWithNullProfileId: null };
-          return await prisma.user.findUnique({ where: { id: args.id } }) || null;
+          return await prisma.user.findUnique({ where: { id: args.id } });
         }
       },
     }),
