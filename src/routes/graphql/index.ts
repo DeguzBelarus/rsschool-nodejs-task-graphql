@@ -360,8 +360,6 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         args: { dto: { type: CreateProfileInput } },
         async resolve(_, args: { dto: ICreateProfileData }) {
           const { dto: { userId, memberTypeId, isMale, yearOfBirth } } = args;
-          console.log(Number.isInteger(yearOfBirth), 'year', yearOfBirth);
-
           return await prisma.profile.create({ data: { userId, memberTypeId, isMale, yearOfBirth } });
         }
       }
