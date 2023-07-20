@@ -58,13 +58,39 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
 
   const UserType = new GraphQLObjectType({
     name: 'UserType',
-    fields: {
+    fields: () => ({
       id: { type: UUIDType },
       name: { type: GraphQLString },
       balance: { type: GraphQLFloat },
       profile: { type: ProfileType },
-      posts: { type: new GraphQLList(PostType) }
-    }
+      posts: { type: new GraphQLList(PostType) },
+      userSubscribedTo: {
+        type: new GraphQLList(UserType), async resolve(parent: { id: string }, _) {
+          return await prisma.user.findMany({
+            where: {
+              subscribedToUser: {
+                some: {
+                  subscriberId: parent.id,
+                },
+              },
+            },
+          });
+        }
+      },
+      subscribedToUser: {
+        type: new GraphQLList(UserType), async resolve(parent: { id: string }, _) {
+          return await prisma.user.findMany({
+            where: {
+              userSubscribedTo: {
+                some: {
+                  authorId: parent.id,
+                },
+              },
+            },
+          });
+        }
+      },
+    })
   });
 
   const RootQueryType = new GraphQLObjectType({
