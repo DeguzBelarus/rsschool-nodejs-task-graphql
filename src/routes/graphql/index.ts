@@ -223,10 +223,20 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
     balance: number;
   }
 
+  interface IChangeUserData {
+    name?: string;
+    balance?: number;
+  }
+
   interface ICreatePostData {
     authorId: string;
     content: string;
     title: string;
+  }
+
+  interface IChangePostData {
+    content?: string;
+    title?: string;
   }
 
   interface ICreateProfileData {
@@ -234,6 +244,12 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
     memberTypeId: MemberTypeIdEnum;
     isMale: boolean;
     yearOfBirth: number;
+  }
+
+  interface IChangeProfileData {
+    memberTypeId?: MemberTypeIdEnum;
+    isMale?: boolean;
+    yearOfBirth?: number;
   }
 
   const CreateUserInput = new GraphQLScalarType({
@@ -254,6 +270,24 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
     },
   });
 
+  const ChangeUserInput = new GraphQLScalarType({
+    name: 'ChangeUserInput',
+    serialize(value) {
+      const changeUserData = value as IChangeUserData;
+      return typeof changeUserData.name !== 'string' &&
+        typeof changeUserData.balance !== 'number' ?
+        null
+        : value;
+    },
+    parseValue(value) {
+      const changeUserData = value as IChangeUserData;
+      return typeof changeUserData.name !== 'string' &&
+        typeof changeUserData.balance !== 'number' ?
+        null
+        : value;
+    },
+  });
+
   const CreatePostInput = new GraphQLScalarType({
     name: 'CreatePostInput',
     serialize(value) {
@@ -269,6 +303,38 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
       return typeof createPostData.authorId !== 'string' &&
         typeof createPostData.title !== 'string' &&
         typeof createPostData.content !== 'number' ?
+        null
+        : value;
+    },
+  });
+
+  const ChangePostInput = new GraphQLScalarType({
+    name: 'ChangePostInput',
+    serialize(value) {
+      const changePostData = value as IChangePostData;
+      const createPostData = value as ICreatePostData;
+      if (createPostData.authorId) {
+        throw new Error(
+          "Field \"authorId\" is not defined by type \"ChangePostInput\"",
+        );
+      }
+
+      return typeof changePostData.title !== 'string' &&
+        typeof changePostData.content !== 'number' ?
+        null
+        : value;
+    },
+    parseValue(value) {
+      const changePostData = value as IChangePostData;
+      const createPostData = value as ICreatePostData;
+      if (createPostData.authorId) {
+        throw new Error(
+          "Field \"authorId\" is not defined by type \"ChangePostInput\"",
+        );
+      }
+
+      return typeof changePostData.title !== 'string' &&
+        typeof changePostData.content !== 'number' ?
         null
         : value;
     },
@@ -310,6 +376,52 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
     },
   });
 
+  const ChangeProfileInput = new GraphQLScalarType({
+    name: 'ChangeProfileInput',
+    serialize(value) {
+      const changeProfileData = value as IChangeProfileData;
+      const createProfileData = value as ICreateProfileData;
+      if (createProfileData.userId) {
+        throw new Error(
+          "Field \"userId\" is not defined by type \"ChangeProfileInput\"",
+        );
+      }
+      if (changeProfileData.yearOfBirth && !Number.isInteger(changeProfileData.yearOfBirth)) {
+        throw new Error(
+          `Int cannot represent non-integer value: ${changeProfileData.yearOfBirth}`,
+        );
+      }
+
+      return (changeProfileData.memberTypeId !== MemberTypeIdEnum.BASIC &&
+        changeProfileData.memberTypeId !== MemberTypeIdEnum.BUSINESS) &&
+        typeof changeProfileData.yearOfBirth !== 'number' &&
+        typeof changeProfileData.isMale !== 'boolean' ?
+        null
+        : value;
+    },
+    parseValue(value) {
+      const changeProfileData = value as IChangeProfileData;
+      const createProfileData = value as ICreateProfileData;
+      if (createProfileData.userId) {
+        throw new Error(
+          "Field \"userId\" is not defined by type \"ChangeProfileInput\"",
+        );
+      }
+      if (changeProfileData.yearOfBirth && !Number.isInteger(changeProfileData.yearOfBirth)) {
+        throw new Error(
+          `Int cannot represent non-integer value: ${changeProfileData.yearOfBirth}`,
+        );
+      }
+
+      return (changeProfileData.memberTypeId !== MemberTypeIdEnum.BASIC &&
+        changeProfileData.memberTypeId !== MemberTypeIdEnum.BUSINESS) &&
+        typeof changeProfileData.yearOfBirth !== 'number' &&
+        typeof changeProfileData.isMale !== 'boolean' ?
+        null
+        : value;
+    },
+  });
+
   const CreateUserType = new GraphQLObjectType({
     name: 'CreateUserType',
     fields: {
@@ -330,6 +442,33 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
 
   const CreateProfileType = new GraphQLObjectType({
     name: 'CreateProfileType',
+    fields: {
+      id: {
+        type: UUIDType,
+      }
+    }
+  });
+
+  const ChangeUserType = new GraphQLObjectType({
+    name: 'ChangeUserType',
+    fields: {
+      id: {
+        type: UUIDType,
+      }
+    }
+  });
+
+  const ChangePostType = new GraphQLObjectType({
+    name: 'ChangePostType',
+    fields: {
+      id: {
+        type: UUIDType,
+      }
+    }
+  });
+
+  const ChangeProfileType = new GraphQLObjectType({
+    name: 'ChangeProfileType',
     fields: {
       id: {
         type: UUIDType,
@@ -387,7 +526,31 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
           const { id } = args;
           await prisma.profile.delete({ where: { id } });
         }
-      }
+      },
+      changeUser: {
+        type: ChangeUserType,
+        args: { id: { type: UUIDType }, dto: { type: ChangeUserInput } },
+        async resolve(_, args: { id: string, dto: IChangeUserData }) {
+          const { id, dto: { name, balance } } = args;
+          return await prisma.user.update({ where: { id }, data: { name, balance } });
+        }
+      },
+      changePost: {
+        type: ChangePostType,
+        args: { id: { type: UUIDType }, dto: { type: ChangePostInput } },
+        async resolve(_, args: { id: string, dto: IChangePostData }) {
+          const { id, dto: { content, title } } = args;
+          return await prisma.post.update({ where: { id }, data: { content, title } });
+        }
+      },
+      changeProfile: {
+        type: ChangeProfileType,
+        args: { id: { type: UUIDType }, dto: { type: ChangeProfileInput } },
+        async resolve(_, args: { id: string, dto: IChangeProfileData }) {
+          const { id, dto: { isMale, memberTypeId, yearOfBirth } } = args;
+          return await prisma.profile.update({ where: { id }, data: { isMale, memberTypeId, yearOfBirth } });
+        }
+      },
     }
   });
 
