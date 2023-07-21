@@ -11,7 +11,6 @@ import {
   GraphQLString,
   GraphQLBoolean,
   GraphQLScalarType,
-  GraphQLNullableType,
 } from 'graphql';
 import { UUIDType } from "./types/uuid.js";
 
