@@ -431,6 +431,15 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
     }
   });
 
+  const SubscribeToType = new GraphQLObjectType({
+    name: 'SubscribeToType',
+    fields: {
+      id: {
+        type: UUIDType,
+      }
+    }
+  });
+
   const CreatePostType = new GraphQLObjectType({
     name: 'CreatePostType',
     fields: {
@@ -549,6 +558,22 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         async resolve(_, args: { id: string, dto: IChangeProfileData }) {
           const { id, dto: { isMale, memberTypeId, yearOfBirth } } = args;
           return await prisma.profile.update({ where: { id }, data: { isMale, memberTypeId, yearOfBirth } });
+        }
+      },
+      subscribeTo: {
+        type: SubscribeToType,
+        args: { userId: { type: UUIDType }, authorId: { type: UUIDType } },
+        async resolve(_, args: { userId: string, authorId: string }) {
+          const { userId, authorId } = args;
+          return await prisma.subscribersOnAuthors.create({ data: { subscriberId: userId, authorId } });
+        }
+      },
+      unsubscribeFrom: {
+        type: GraphQLString,
+        args: { userId: { type: UUIDType }, authorId: { type: UUIDType } },
+        async resolve(_, args: { userId: string, authorId: string }) {
+          const { userId, authorId } = args;
+          await prisma.subscribersOnAuthors.deleteMany({ where: { subscriberId: userId, authorId } });
         }
       },
     }
