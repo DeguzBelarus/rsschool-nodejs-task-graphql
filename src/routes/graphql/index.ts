@@ -17,6 +17,11 @@ import {
 import { UUIDType } from "./types/uuid.js";
 import depthLimit from "graphql-depth-limit";
 import DataLoader from "dataloader";
+import {
+  parseResolveInfo,
+  simplifyParsedResolveInfoFragmentWithType,
+  ResolveTree
+} from "graphql-parse-resolve-info";
 
 type UndefinableType<T> = undefined | T;
 
@@ -81,6 +86,7 @@ interface IResolversContext {
   memberTypeLoader: DataLoader<string, IMemberType, string>;
   userSubscribedToLoader: DataLoader<string, IUser, string>;
   subscribedToUserLoader: DataLoader<string, IUser, string>;
+  userWithSubsLoader: DataLoader<string, IUser, string>;
 }
 
 export interface IObjectOfObjects<T> {
@@ -127,7 +133,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
   });
 
   const userSubscribedToLoader = new DataLoader(async (keys: readonly string[]): Promise<Array<IUser>> => {
-    const usersWithSubscriptions = await prisma.user.findMany({ include: { subscribedToUser: true, userSubscribedTo: true } });
+    const usersWithSubscriptions = await prisma.user.findMany({ include: { subscribedToUser: true } });
     const cache: IObjectOfObjects<IUser> = keys.reduce((accumulator, key) => {
       accumulator[key] = usersWithSubscriptions.filter((subscription) => subscription.subscribedToUser.some((sub) => sub.subscriberId === key));
       return accumulator;
@@ -136,9 +142,18 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
   });
 
   const subscribedToUserLoader = new DataLoader(async (keys: readonly string[]): Promise<Array<IUser>> => {
-    const usersWithSubscriptions = await prisma.user.findMany({ include: { subscribedToUser: true, userSubscribedTo: true } });
+    const usersWithSubscriptions = await prisma.user.findMany({ include: { userSubscribedTo: true } });
     const cache: IObjectOfObjects<IUser> = keys.reduce((accumulator, key) => {
       accumulator[key] = usersWithSubscriptions.filter((subscription) => subscription.userSubscribedTo.some((sub) => sub.authorId === key));
+      return accumulator;
+    }, {});
+    return keys.map((key) => cache[key]);
+  });
+
+  const userWithSubsLoader = new DataLoader(async (keys: readonly string[]): Promise<Array<IUser>> => {
+    const usersWithSubscriptions = await prisma.user.findMany({ include: { subscribedToUser: true, userSubscribedTo: true } });
+    const cache: IObjectOfObjects<IUser> = keys.reduce((accumulator, key) => {
+      accumulator[key] = usersWithSubscriptions.find((user) => user.id === key);
       return accumulator;
     }, {});
     return keys.map((key) => cache[key]);
@@ -211,13 +226,13 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
       userSubscribedTo: {
         type: new GraphQLList(UserType), async resolve(parent: IUser, _, context: IResolversContext) {
           const { userSubscribedToLoader } = context;
-          return await userSubscribedToLoader.load(parent.id);
+          return (await userSubscribedToLoader.load(parent.id));
         }
       },
       subscribedToUser: {
         type: new GraphQLList(UserType), async resolve(parent: IUser, _, context: IResolversContext) {
           const { subscribedToUserLoader } = context;
-          return await subscribedToUserLoader.load(parent.id);
+          return (await subscribedToUserLoader.load(parent.id));
         }
       },
     })
@@ -274,10 +289,23 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
       user: {
         type: UserType as GraphQLObjectType<IUser>,
         args: { id: { type: UUIDType } },
-        async resolve(_, args: { id: string, userWithNullProfileId: UndefinableType<string> }, context: IResolversContext) {
+        async resolve(_, args: { id: string, userWithNullProfileId: UndefinableType<string> }, context: IResolversContext, resolveInfo) {
           const { id, userWithNullProfileId } = args;
           if (userWithNullProfileId) return { userWithNullProfileId: null };
-          const { userLoader } = context;
+          const { userLoader, userWithSubsLoader } = context;
+
+          const parsedResolveInfoFragment = parseResolveInfo(resolveInfo) as ResolveTree;
+          const { fields } = simplifyParsedResolveInfoFragmentWithType(
+            parsedResolveInfoFragment,
+            resolveInfo.returnType
+          );
+
+          if ('userSubscribedTo' in fields || 'subscribedToUser' in fields) {
+            const foundUserWithSubs = await userWithSubsLoader.load(id);
+            // userSubscribedToLoader.prime(id, foundUserWithSubs);
+            // subscribedToUserLoader.prime(id, foundUserWithSubs);
+            return foundUserWithSubs;
+          }
           return await userLoader.load(id);
         }
       },
@@ -674,6 +702,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
             memberTypeLoader,
             userSubscribedToLoader,
             subscribedToUserLoader,
+            userWithSubsLoader,
           }
         });
     },
